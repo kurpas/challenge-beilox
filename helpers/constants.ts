@@ -1,0 +1,1 @@
+export const MAX_RESPONSE_TIME_MS = 3000;
