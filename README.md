@@ -43,7 +43,7 @@ npx playwright test tests/ui/search.spec.ts -g "volver atrás"   # un test puntu
 | `UI_BASE_URL` | `https://www.centraldepasajes.com.ar` | `baseURL` del project `ui` |
 | `API_BASE_URL` | `https://www.swapi.tech/api/` | `baseURL` del project `api` |
 
-El `.env` está en `.gitignore` y solo se versiona `.env.example`. Hoy no hay credenciales porque los dos sitios son públicos, pero el mecanismo ya está listo: si mañana hace falta un token, va al `.env` local y a un *secret* de GitHub en CI.
+El `.env` está en `.gitignore` y solo se versiona `.env.example`. Los tests no usan credenciales porque los dos sitios son públicos, pero el mecanismo ya está listo: si mañana hace falta un token, va al `.env` local y a un *secret* de GitHub en CI. (El único token del proyecto es el del MCP de GitHub, que se lee de una variable de entorno; ver [Uso del asistente de IA + MCP servers](#uso-del-asistente-de-ia--mcp-servers).)
 
 ---
 
@@ -51,6 +51,7 @@ El `.env` está en `.gitignore` y solo se versiona `.env.example`. Hoy no hay cr
 
 ```
 ├── .github/workflows/e2e.yml   # CI: lunes 15:00 ART + ejecución manual
+├── .mcp.json                   # MCP servers usados con el asistente (Playwright, GitHub)
 ├── playwright.config.ts        # projects "ui" y "api", baseURL desde .env
 ├── fixtures/                   # test.extend: inyectan page objects / cliente API
 │   ├── ui.fixture.ts
@@ -114,7 +115,7 @@ await resultsPage.expectResultsFor(ROUTES.withServices, departure);
 Hallazgos que fueron apareciendo al explorar los sitios y que condicionaron el código:
 
 - **El combo de origen/destino es select2.** Al elegir una opción, su nombre accesible pasa a ser el texto seleccionado, y un `getByRole('combobox', { name })` deja de encontrarlo. Se ubica por `aria-labelledby`, que no cambia. Las opciones se eligen por el código de terminal (`(BUE)`), que es único; el nombre solo matchea varias.
-- **Al elegir el origen, el dropdown de destino se abre solo.** El primer intento hacía click en destino y lo *cerraba*, y el test fallaba de forma confusa. La solución fue que `openAutocomplete()` solo clickee si `aria-expanded` no es `true`, en lugar de agregar una espera fija.
+- **Al elegir el origen, el dropdown de destino a veces se abre solo.** No es constante: en unas corridas se abre y en otras no. El primer intento siempre hacía click en destino; cuando ya estaba abierto lo *cerraba*, y el test fallaba de forma confusa. La solución fue que `openAutocomplete()` solo clickee si `aria-expanded` no es `true`, y así cubre los dos casos sin agregar una espera fija.
 - **Los destinos se filtran según el origen.** Para "sin resultados" no sirve cualquier par de ciudades: hay que buscar una ruta seleccionable pero sin servicios.
 - **Hay dos calendarios en el DOM** (ida y vuelta); se acota al de ida con `#cdp-calendar-container`.
 - **Uso de CSS/id en lugar de `getByRole` en varios lugares.** Playwright recomienda locators por rol, pero este sitio tiene accesibilidad que complica mantener eso: el calendario son `div`s y select2 rompe los nombres. Usé rol donde se pudo (botón Buscar, opciones del autocompletado) e ids estables en el resto.
@@ -125,7 +126,10 @@ Hallazgos que fueron apareciendo al explorar los sitios y que condicionaron el c
 
 **UI — centraldepasajes.com.ar**
 
-- **Formato de fecha inconsistente.** Al elegir la fecha, el input muestra `05-11-2026`; al volver atrás desde resultados, el sitio la restaura como `05/11/2026`. Es menor, pero es una inconsistencia real. El test acepta ambos formatos porque lo que valida es que la fecha se conserve.
+Reproducidos con Playwright MCP y registrados como issues con GitHub MCP:
+
+- **Formato de fecha inconsistente** ([#1](https://github.com/kurpas/challenge-beilox/issues/1)). Al elegir la fecha, el input muestra `05-11-2026`; al volver atrás desde resultados, el sitio la restaura como `05/11/2026`. Es menor, pero es una inconsistencia real. El test acepta ambos formatos porque lo que valida es que la fecha se conserve.
+- **El calendario de vuelta permite fechas inválidas después de volver atrás** ([#2](https://github.com/kurpas/challenge-beilox/issues/2)). Tras una búsqueda de solo ida y volver atrás, al cambiar a "Ida y vuelta" se puede elegir una vuelta anterior a la ida, incluso pasada. El servidor rechaza la búsqueda con un mensaje genérico, borra las fechas y el formulario queda inconsistente. En una búsqueda nueva el calendario funciona bien.
 
 **API — swapi.tech**
 
@@ -169,35 +173,76 @@ Detalles del cron de GitHub a tener en cuenta: puede arrancar con unos minutos d
 
 ## Uso del asistente de IA + MCP servers
 
-> ✍️ **PENDIENTE — escribir con mis palabras.** Guía de lo que tiene que quedar claro:
-> - Qué asistente usé y en qué rol (¿pair programmer?, ¿generador de primera versión?, ¿revisor?).
-> - **Dos MCP servers usados de forma concreta**: qué le pedí, qué devolvió y qué hice con eso. (Ideas genuinas: validar los locators con Playwright MCP; cargar el bug del formato de fecha con un MCP de Jira/GitHub con evidencia adjunta.)
-> - Qué revisé o cambié de lo que generó la IA, y por qué.
+Usé Claude (Claude Code) como asistente, en modo pair programming; también le pedí que revisara cosas que hice. Le pedí ayuda para configurar los MCP. Y me ayudó con TypeScript, ya que había usado Java y JavaScript, pero no TypeScript.
+
+### MCP servers utilizados
+
+- **Playwright MCP:** le pedí ejecutar algunos flujos, por ejemplo los de los bugs que cargué, para validarlos. También para validar algún comportamiento del que tenía sospecha, como un elemento que se abre o despliega automáticamente.
+- **GitHub MCP:** lo usé para crear y editar los issues [#1](https://github.com/kurpas/challenge-beilox/issues/1) y [#2](https://github.com/kurpas/challenge-beilox/issues/2). No tenía Jira disponible, así que lo usé de la misma forma para registrar los bugs.
+
+Los servers están configurados en [`.mcp.json`](.mcp.json). El de GitHub usa un token con permisos mínimos (solo este repo y solo issues), que se lee de la variable de entorno `GITHUB_PAT` y nunca se commitea.
+
+### Qué revisé o cambié de lo que generó la IA
+
+- Le pedí ayuda para documentar, pero rehíce varias cosas, por ejemplo en el README, donde no reflejaba exactamente lo que estuve trabajando o complejizaba mucho algunas cosas.
+- También algunos métodos donde había algún valor hardcodeado: los cambié para que sean parametrizables y escalables.
 
 ### Dónde decidí NO usar el asistente
 
-> ✍️ **PENDIENTE** — un caso real y el motivo (criterio del rol).
+- Para explorar la web de Central de Pasajes y entender el flujo, porque quería entenderlo como usuario antes de automatizarlo.
+- Para debuguear algunos tests, revisando que el flujo esté correcto.
+- Para decidir la severidad de los bugs.
 
 ### MCP server que propongo (no usado en el challenge)
 
-> ✍️ **PENDIENTE** — cuál, y el caso de uso concreto en mi día a día como QA Automation.
-Podria ser MCP para slack o teams, para poder informar del resultado corridas.
-
+- **Jira MCP:** facilitaría crear bugs completos sin necesidad de cargarlos manualmente.
+- **Slack MCP:** si hay muchos mensajes, puede revisar uno o varios channels y hacerme un resumen o decirme las novedades importantes.
 
 ---
 
 ## Preguntas teóricas
 
-> ✍️ **PENDIENTE — respuestas propias, pocas líneas cada una.**
-
 **1. Escalabilidad — la suite creció a 500 tests, ¿qué cambiarías en la estructura?**
+
+- Separar la corrida de tests en varias suites.
+- Agregar `@tags` (smoke, regression) para correr solo lo necesario en cada momento.
+- Mantener los tests independientes para poder paralelizar.
+- Organizar tests y page objects por funcionalidad, y extraer componentes reutilizables (por ejemplo, el formulario de búsqueda, que aparece en más de una página).
+- Centralizar los datos de prueba para no repetirlos en cada test.
 
 **2. Flakiness — un test es intermitente sin cambios en el código, ¿cómo lo diagnosticás y qué considerás antes de marcarlo como skip?**
 
+- Primero lo reproduciría: correrlo muchas veces seguidas y revisar el trace o el video de la falla.
+- Busco las causas típicas, como esperas de algún elemento o timeouts.
+- Revisar si se pueden mejorar los selectores.
+- Ver si hay dependencia entre tests o algún dato que pueda estar pisándose o rompiéndose por otro test.
+- Verlo en otro ambiente u otras versiones.
+- Tener en cuenta que puede ser un bug real de la aplicación (por ejemplo, una condición de carrera), no solo del test.
+- Antes de pasarlo a skip, analizaría la cobertura del caso y la importancia de ese flujo. Como alternativa, lo pondría en cuarentena (separado de la suite principal, con un ticket) hasta corregirlo.
+
 **3. POM — si cambia el selector del botón "Buscar", ¿cuántos archivos modificás?**
+
+- Uno solo, el del POM donde tengo ese elemento (`SearchPage.ts`). Los tests nunca usan selectores, solo métodos del Page Object; además, en este proyecto los locators son `private`, así que ningún test podría usarlos aunque quisiera.
 
 **4. AI assistant — un test generado por IA pasa al primer intento, ¿qué chequeás antes de mergearlo? ¿Un caso donde decidiste no usarlo?**
 
+- Que efectivamente esté testeando algo puntual, que me sume cobertura. Para confirmarlo, lo haría fallar a propósito y vería que la aserción lo detecta.
+- Que no falten `await`, que no use esperas fijas (`waitForTimeout`) y que respete el POM y las convenciones del proyecto.
+- Que no duplique otro test: en un caso me creó un test idéntico a otro, solo con un dato similar, y lo descarté.
+- Un caso donde no lo usé: para explorar la web y entender el flujo como usuario antes de automatizarlo.
+
 **5. Criterio del rol — ¿qué responsabilidad de un QA Senior no se puede delegar a un asistente de IA?**
 
+- Qué probar y qué no.
+- Interpretar requerimientos ambiguos.
+- El testing exploratorio guiado por la experiencia de un QA, intentando encontrar una falla.
+- El último visto bueno del código y de los tests.
+- Mentorear perfiles de menor seniority.
+
 **6. CI/CD — los tests fallan cada lunes 15:00 por un problema transitorio de red, ¿cómo lo manejás?**
+
+- Los retries (ya configurados en CI) ayudan con fallas transitorias puntuales, pero si falla todos los lunes ya no es transitorio: es un patrón, y los retries lo estarían escondiendo.
+- Escalar el problema con la gente a cargo o el personal idóneo.
+- Se podría agregar un health check de la red antes de correr, y si falla, marcar la corrida como problema de ambiente en lugar de mostrar todos los tests en rojo.
+- Alertar al equipo distinguiendo "falló el ambiente" de "falló un test", para no generar falsas alarmas.
+- Verificar manualmente si corre bien en otros horarios o días y, en caso positivo, evaluar cambiar el día y hora de ejecución. Solo si la causa es conocida (por ejemplo, una ventana de mantenimiento); si no, cambiar el horario escondería el problema.

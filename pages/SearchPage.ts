@@ -103,7 +103,8 @@ export class SearchPage {
 
   // ---------- Aserciones ----------
   async expectToBeDisplayed(): Promise<void> {
-    await expect(this.page).toHaveURL(/centraldepasajes\.com\.ar\/?$/);
+    // Ruta relativa: Playwright la combina con el baseURL, así funciona en cualquier ambiente.
+    await expect(this.page).toHaveURL('/');
     await expect(this.searchButton).toBeVisible();
   }
 

@@ -1,19 +1,18 @@
 {
   "name": "challenge-beilox",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
- "scripts": {
-  "test": "playwright test",
-  "test:ui": "playwright test --project=ui",
-  "test:api": "playwright test --project=api",
-  "typecheck": "tsc --noEmit",
-  "report": "playwright show-report"
-},
-  "keywords": [],
-  "author": "",
+  "description": "Tests automatizados de UI (centraldepasajes.com.ar) y API (swapi.tech) con Playwright + TypeScript",
+  "author": "kurpas",
   "license": "ISC",
+  "private": true,
   "type": "commonjs",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --project=ui",
+    "test:api": "playwright test --project=api",
+    "typecheck": "tsc --noEmit",
+    "report": "playwright show-report"
+  },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
