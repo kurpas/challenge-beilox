@@ -17,6 +17,7 @@
     "fixtures/**/*.ts",
     "helpers/**/*.ts",
     "schemas/**/*.ts",
+    "test-data/**/*.ts",
     "playwright.config.ts"
   ]
 }
