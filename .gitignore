@@ -12,3 +12,9 @@ node_modules/
 
 # macOS
 .DS_Store
+
+# Playwright MCP (snapshots y logs de sesión)
+/.playwright-mcp/
+
+# Screenshots de evidencia (se adjuntan a mano en los issues)
+/evidence/
