@@ -25,7 +25,13 @@ export default defineConfig({
     {
       name: 'ui',
       testDir: './tests/ui',
-      use: { ...devices['Desktop Chrome'], baseURL: UI_BASE_URL },
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: UI_BASE_URL,
+        // El runner de CI corre en UTC y en inglés: se fija el contexto de un usuario argentino.
+        locale: 'es-AR',
+        timezoneId: 'America/Argentina/Buenos_Aires',
+      },
     },
     {
       name: 'api',
